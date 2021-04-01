@@ -121,3 +121,8 @@ proc cards*(db: DbConn): Option[seq[Card]] =
     cards.add(row.toCard())
   return some(cards)
 
+proc remove_collection*(db: DbConn, id: int) =
+  # first delete the cards connected to the collection
+  db.exec(sql"delete from card where collection_id = ?", id)
+  # then delete the collection itself
+  db.exec(sql"delete from collection where collection_id = ?", id)
