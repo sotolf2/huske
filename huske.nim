@@ -9,7 +9,7 @@ proc exit_proc() {.noconv.} =
   iw.show_cursor()
   quit(0)
 
-iw.illwill_init()
+iw.illwill_init(fullscreen=true)
 set_control_c_hook(exit_proc)
 hide_cursor()
 
@@ -34,16 +34,16 @@ proc learn(db: DBConn) =
   var menuitems:seq[MenuItem] = @[]
   let colls = db.collections()
 
+  var last_id = 0
+
   if colls.is_some():
-    var last_id = 0
     for coll in colls.get():
       menuitems.add(MenuItem(name: coll.name, id: coll.id))
       last_id = coll.id
-    menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
-  else:
-    menuitems.add(MenuItem(name: "Back", id: 1))
+      
+  menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
+  
   while true:
-
     tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + menuitems.len)
     tb.write(2, 1, fgYellow, "Learn")
     tb.set_foreground_color(fgWhite, true)
@@ -65,7 +65,9 @@ proc learn(db: DBConn) =
       if selected == len(menuitems) - 1:
         tb.clear()
         return
-    of Key.Escape, Key.Q: return
+    of Key.Escape, Key.Q: 
+      tb.clear()
+      return
     else:
       discard
 
@@ -158,7 +160,7 @@ proc main() =
     let menuitems = [
       MenuItem(name: "Learn", id: 1),
       MenuItem(name: "Create new cards", id: 2),
-      MenuItem(name: "Create new collection", id: 3),
+      MenuItem(name: "Manage collections", id: 3),
       MenuItem(name: "Quit", id: 4)
     ]
 
@@ -183,7 +185,7 @@ proc main() =
       case selected + 1
       of 1: learn(db)
       of 2: create_cards()
-      of 3: create_collection()
+      of 3: manage_collections(db)
       of 4:
         db.close()
         exit_proc()
