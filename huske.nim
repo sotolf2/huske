@@ -1,5 +1,6 @@
 import os, options
 import illwill as iw
+import illwillWidgets as iww
 import db_sqlite as sq
 import schedule as se
 import backend 
@@ -105,47 +106,103 @@ proc create_cards() =
         tb.clear()
         return
       else: discard
-    of Key.Escape, Key.Q: return
+    of Key.Escape, Key.Q:
+      tb.clear()
+      return
     else:
       discard
 
     tb.display()
     sleep(20)
 
-proc create_collection() =
-  tb.clear()
+proc manage_collections(db: DBConn) =
   var selected = 0
+  var warning_active = false
+  var text_box_is_active = false
+  var text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                              bg_color=bg_green)
+                              
 
   while true:
-    let menuitems = [
-      MenuItem(name: "Back", id: 1)
-    ]
+    tb.clear()
+    # had to put the generating list here to reflect changes
+    # in the menu when a collection is deleted
+    var menuitems:seq[MenuItem] = @[]
+    var colls = db.collections()
 
+    var last_id = 0
+
+    if colls.is_some():
+      for coll in colls.get():
+        menuitems.add(MenuItem(name: coll.name, id: coll.id))
+        last_id = coll.id
+      
+    menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
+    
     tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + menuitems.len)
-    tb.write(2, 1, fgYellow, "Create collection")
-    tb.set_foreground_color(fgWhite, true)
+    tb.write(2, 1, fg_yellow, "Manage collections")
+    tb.set_foreground_color(fg_white, true)
     tb.draw_horiz_line(2, iw.terminal_width() - 3, 2, doubleStyle=true)
-
     for i, item in menuitems:
       item.write(tb, 2, 3 + i, i == selected)
-    
+
+    tb.write(2, 4 + menuitems.len, 
+            fg_green, "d: ", fg_white, "delete selected collection")
+    tb.write(2, 5 + menuitems.len, 
+            fg_green, "c: ", fg_white, "create new collection")
+
+    text_box.y = 7 + menuitems.len
+
     var key = iw.get_key()
+    
+    if text_box.focus:
+      if tb.handle_key(text_box, key):
+        new_collection(db, text_box.text)
+        text_box_is_active = false
+        text_box.focus = false
+        text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                                 bg_color=bg_green)
+      key.set_key_as_handled()
+
+    
     case key
+    of Key.None: discard
     of Key.Up: 
       if selected > 0:
         selected -= 1
     of Key.Down: 
       if selected < menuitems.len - 1:
         selected += 1
-    of Key.Enter:
-      case selected + 1
-      of 1: 
+    of Key.C:
+      text_box.focus = true
+      text_box_is_active = true
+    of Key.D:
+      # last menuitem is not a collection
+      if selected < menuitems.len - 1:
+        warning_active = true
+    of Key.Y:
+      if warning_active:
+        remove_collection(db, menuitems[selected].id)
+        warning_active = false
+    of Key.N:
+      warning_active = false
+    of Key.Enter, Key.Right:
+      if selected == menuitems.len - 1:
         tb.clear()
         return
       else: discard
-    of Key.Escape, Key.Q: return
+    of Key.Escape, Key.Q: 
+      tb.clear()
+      return
     else:
       discard
+
+    if text_box_is_active:
+      tb.render(text_box)
+
+    if warning_active:
+      tb.write(2, menuitems.len + 7, fg_red,
+                "This will delete all cards in this collection (y/n)", reset_style)
 
     tb.display()
     sleep(20)
