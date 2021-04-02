@@ -1,3 +1,11 @@
+## Backend for Huske, mainly dealing with database storage
+##
+## Backend
+## -------
+## 
+## I'm using sqlite as a backing store for the cards and collections that 
+## huske uses to store metadata and collections.
+
 import db_sqlite as sq
 import times as dt
 import strutils
@@ -6,12 +14,17 @@ import sugar
 
 
 proc init_tables(db: DbConn) =
+  ## Sets the tables in the database if they aren't already
+  ## this is used to ensure that we have a schema to work with
+  ## in case there is not yet an existing database file.
+  
   # Collections
   db.exec(sql"""create table if not exists collection (
                 collection_id integer primary key
                 , name text not null);
           """)
 
+  # Cards
   db.exec(sql"""create table if not exists card (
                 card_id integer primary key
                 , frontside text not null
