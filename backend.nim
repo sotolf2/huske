@@ -37,16 +37,19 @@ proc init_tables(db: DbConn) =
           """)
 
 proc open_db*(): DbConn =
+  ## Opens the databasefile and initiates tables
   var db = sq.open("huske.db", "", "", "")
   db.init_tables()
   return db
 
 type 
   Collection* = object
+    ## a group of cards to separate out different learning sessions
     id*: int
     name*: string
 
 proc collection_from_id*(db: DbConn, id: int): Option[Collection] = 
+  ## Gets a collection from the database based on its id
   let row = db.getRow(sql"select * from collection where collection_id = ?", id)
   if row[0] != "":
     dump(row)
@@ -55,6 +58,7 @@ proc collection_from_id*(db: DbConn, id: int): Option[Collection] =
   result = none(Collection)
 
 proc collections*(db: DbConn): Option[seq[Collection]] =
+  ## Gets all the collections stored in the db
   let rows = db.get_all_rows(sql"select * from collection")
   # early return if no results
   if rows == @[]:
@@ -66,16 +70,21 @@ proc collections*(db: DbConn): Option[seq[Collection]] =
   return some(collections)
 
 proc new_collection*(db: DbConn, name: string) =
+  ## Stores a new collection in the database
   db.exec(sql"insert into collection(name) values(?)", name)
 
 type
   CardType* = enum
+    ## These stores the state of a card, the intention is to use these to
+    ## decide how to better schedule them or to move cards into the learning
+    ## queue
     New = 0
     Learning = 1
     Review = 2
 
 type
   Card* = object
+    ## Here we have a card and its metadata which will be used for scheduling them
     id*: int
     frontside*: string
     backside*: string
@@ -86,6 +95,7 @@ type
     card_type*: CardType
 
 proc to_card(row: seq[string]): Card =
+  ## Takes a database row and parses it into a Card
   var 
     id: int = row[0].parse_int
     frontside: string = row[1]
@@ -113,6 +123,7 @@ proc to_card(row: seq[string]): Card =
                 card_type: card_type)
 
 proc card_from_id*(db: DbConn, id: int): Option[Card] = 
+  ## Queries a card from the db based on its id
   let row = db.get_row(sql"select * from card where card_id = ?", id)
   if row[0] != "":
     result = some(row.toCard())
@@ -120,10 +131,12 @@ proc card_from_id*(db: DbConn, id: int): Option[Card] =
   result = none(Card)
 
 proc new_card*(db: DbConn, frontside: string, backside: string, collection_id: int) =
+  ## Adds a new card to the database
   db.exec(sql"insert into card(frontside, backside, collection_id, card_type) values(?, ?, ?, ?)",
           frontside, backside, collection_id,0)
 
 proc cards*(db: DbConn): Option[seq[Card]] =
+  ## Queries a list of all cards from the database
   let rows = db.get_all_rows(sql"select * from card")
   # early return if no results
   if rows == @[]:
@@ -135,6 +148,7 @@ proc cards*(db: DbConn): Option[seq[Card]] =
   return some(cards)
 
 proc remove_collection*(db: DbConn, id: int) =
+  ## Removes a collection and all its associated cards from the db
   # first delete the cards connected to the collection
   db.exec(sql"delete from card where collection_id = ?", id)
   # then delete the collection itself
