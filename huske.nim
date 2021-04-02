@@ -93,7 +93,12 @@ proc learn(db: DBConn) =
     sleep(20)
 
 proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
+  ## This menu will manage cards, since we may have many cards 100s +
+  ## we have to make a scrolling view for this one
+
   var selected = 0
+  let view_size = 20
+  let scroll_buffer = 5
 
   while true:
     tb.clear()
@@ -110,12 +115,11 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
 
         last_id = card.id
 
-    menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
-
-    tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + menuitems.len)
+    tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + view_size)
     tb.write(2, 1, fgYellow, coll_name)
     tb.set_foreground_color(fgWhite, true)
     tb.draw_horiz_line(2, terminal_width() - 3, 2, doubleStyle=true)
+    tb.write(2, 4 + view_size, fg_green, "a: add card")
 
     for i, item in menuitems:
       item.write(tb, 2, 3 + i, i == selected)
