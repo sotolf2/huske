@@ -92,19 +92,60 @@ proc learn(db: DBConn) =
     tb.display()
     sleep(20)
 
+proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
+  var selected = 0
+
+  while true:
+    tb.clear()
+
+    var menuitems: seq[MenuItem] = @[]
+    var cards = db.cards_from_collection(coll_id)
+
+    var last_id = 0
+
+    if cards.is_some():
+      for card in cards.get():
+        let desc = card.frontside & " -> " & card.backside
+        menuitems.add(MenuItem(name: desc, id: card.id))
+
+        last_id = card.id
+
+    menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
+
+    tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + menuitems.len)
+    tb.write(2, 1, fgYellow, coll_name)
+    tb.set_foreground_color(fgWhite, true)
+    tb.draw_horiz_line(2, terminal_width() - 3, 2, doubleStyle=true)
+
+    for i, item in menuitems:
+      item.write(tb, 2, 3 + i, i == selected)
+
+    var key = iw.get_key()
+    case key
+    of Key.Up: 
+      if selected > 0:
+        selected -= 1
+    of Key.Down: 
+      if selected < menuitems.len - 1:
+        selected += 1
+    of Key.Enter, Key.Right:
+      if selected == menuitems.len - 1:
+        tb.clear()
+        return
+    of Key.Escape, Key.Q:
+      tb.clear()
+      return
+    else:
+      discard
+
+    tb.display()
+    sleep(20)
+
 proc manage_cards(db: DBConn) =
   ## The submenu for card creation
   tb.clear()
   var selected = 0
-  var front_active = false
-  var back_active = false
 
-  # The y coordinate for the boxes is 0 since y-placement
-  # is not yet known
-  var front_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
-                              bg_color=bg_green)
-  var back_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
-                              bg_color=bg_green)
   while true:
     var menuitems:seq[MenuItem] = @[]
     var colls = db.collections()
@@ -121,7 +162,7 @@ proc manage_cards(db: DBConn) =
     menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
 
     tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + menuitems.len)
-    tb.write(2, 1, fgYellow, "Choose collection")
+    tb.write(2, 1, fgYellow, "Manage card for:")
     tb.set_foreground_color(fgWhite, true)
     tb.draw_horiz_line(2, terminal_width() - 3, 2, doubleStyle=true)
 
@@ -140,6 +181,9 @@ proc manage_cards(db: DBConn) =
       if selected == menuitems.len - 1:
         tb.clear()
         return
+      else:
+        let cur_item = menuitems[selected]
+        card_collection(db, cur_item.name, cur_item.id)
     of Key.Escape, Key.Q:
       tb.clear()
       return
@@ -266,7 +310,7 @@ proc main() =
   while true:
     let menuitems = [
       MenuItem(name: "Learn", id: 1),
-      MenuItem(name: "Create new cards", id: 2),
+      MenuItem(name: "Manage cards", id: 2),
       MenuItem(name: "Manage collections", id: 3),
       MenuItem(name: "Quit", id: 4)
     ]
