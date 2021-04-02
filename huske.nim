@@ -96,9 +96,22 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
   ## This menu will manage cards, since we may have many cards 100s +
   ## we have to make a scrolling view for this one
 
-  var selected = 0
   let view_size = 20
   let scroll_buffer = 5
+
+  var selected = 0
+  var delete_warning = false
+  var ask_reverse = false
+  var asking_front = false
+  var asking_back = false
+
+
+  # The y coordinate is set as 0 here since it's not yet sure where
+  # we have to print it, it will be set later to the right spot
+  var front_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                              bg_color=bg_green)
+  var back_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                              bg_color=bg_green)
 
   while true:
     tb.clear()
@@ -119,7 +132,13 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
     tb.write(2, 1, fgYellow, coll_name)
     tb.set_foreground_color(fgWhite, true)
     tb.draw_horiz_line(2, terminal_width() - 3, 2, doubleStyle=true)
-    tb.write(2, 4 + view_size, fg_green, "a: add card")
+    tb.write(2, 4 + view_size, fg_green, "a: add card", reset_style)
+    tb.write(2, 5 + view_size, fg_green, "d: delete card", reset_style)
+
+    # setting y for textboxes, they are the same since only 
+    # one of them will be visible at a time
+    front_text_box.y = 7 + view_size
+    back_text_box.y = 7 + view_size
 
     for i, item in menuitems:
       item.write(tb, 2, 3 + i, i == selected)
@@ -174,6 +193,27 @@ proc manage_cards(db: DBConn) =
       item.write(tb, 2, 3 + i, i == selected)
     
     var key = iw.get_key()
+
+    # Dealing with input from the textboxes
+    if front_text_box.focus:
+      if tb.handle_key(front_text_box, key):
+        new_collection(db, front_text_box.text)
+        asking_front = false
+        front_text_box.focus = false
+        front_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                                 bg_color=bg_green)
+      key.set_key_as_handled()
+
+    if back_text_box.focus:
+      if tb.handle_key(back_text_box, key):
+        new_collection(db, back_text_box.text)
+        asking_back = false
+        back_text_box.focus = false
+        back_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                                 bg_color=bg_green)
+      key.set_key_as_handled()
+
+
     case key
     of Key.Up: 
       if selected > 0:
