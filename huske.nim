@@ -92,15 +92,33 @@ proc learn(db: DBConn) =
     tb.display()
     sleep(20)
 
-proc create_cards() =
+proc manage_cards(db: DBConn) =
   ## The submenu for card creation
   tb.clear()
   var selected = 0
+  var front_active = false
+  var back_active = false
 
+  # The y coordinate for the boxes is 0 since y-placement
+  # is not yet known
+  var front_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                              bg_color=bg_green)
+  var back_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                              bg_color=bg_green)
   while true:
-    let menuitems = [
-      MenuItem(name: "Back", id: 1)
-    ]
+    var menuitems:seq[MenuItem] = @[]
+    var colls = db.collections()
+
+    var last_id = 0
+
+    if colls.is_some():
+      for coll in colls.get():
+        let n_cards = db.num_cards_in_collection(coll.id)
+        let desc = coll.name & " [" & $n_cards & "]"
+        menuitems.add(MenuItem(name: desc, id: coll.id))
+        last_id = coll.id
+
+    menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
 
     tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + menuitems.len)
     tb.write(2, 1, fgYellow, "Choose collection")
@@ -118,12 +136,10 @@ proc create_cards() =
     of Key.Down: 
       if selected < menuitems.len - 1:
         selected += 1
-    of Key.Enter:
-      case selected + 1
-      of 1: 
+    of Key.Enter, Key.Right:
+      if selected == menuitems.len - 1:
         tb.clear()
         return
-      else: discard
     of Key.Escape, Key.Q:
       tb.clear()
       return
@@ -275,7 +291,7 @@ proc main() =
     of Key.Enter:
       case selected + 1
       of 1: learn(db)
-      of 2: create_cards()
+      of 2: manage_cards(db)
       of 3: manage_collections(db)
       of 4:
         db.close()
