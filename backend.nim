@@ -144,8 +144,20 @@ proc cards*(db: DbConn): Option[seq[Card]] =
 
   var cards: seq[Card]
   for row in rows:
-    cards.add(row.toCard())
+    cards.add(row.to_card())
   return some(cards)
+
+proc cards_from_collection*(db: DbConn, collection_id): Option[seq[Card]] =
+  ## Queries cards that belong to a collection by id
+  let rows = db.get_all_rows(sql"select * from card where collection_id = ?", collection_id)
+  if rows == @[]:
+    return none(seq[Card])
+
+  var cards: seq[Card]
+  for row in rows:
+    cards.add(row.to_card())
+  return some(cards)
+
 
 proc remove_collection*(db: DbConn, id: int) =
   ## Removes a collection and all its associated cards from the db
