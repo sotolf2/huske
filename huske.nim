@@ -1,3 +1,12 @@
+##
+## Huske
+## -----
+##
+## This is a small Spaced Repetition program that I'm writing to try and learn
+## some nim, and hopefully it will also be helpful for memorizing stuff.
+##
+## It uses Sqlite as a backing store and has a little TUI user interface
+
 import os, options
 import illwill as iw
 import illwillWidgets as iww
@@ -6,10 +15,13 @@ import schedule as se
 import backend 
 
 proc exit_proc() {.noconv.} =
+  ## Make sure to clean up illwill stuff when we leave and 
+  ## restore the terminal to its previous state.
   iw.illwill_deinit()
   iw.show_cursor()
   quit(0)
 
+# Set up stuff we need to get the TUI going
 iw.illwill_init(fullscreen=true)
 set_control_c_hook(exit_proc)
 hide_cursor()
@@ -19,16 +31,21 @@ tb.set_foreground_color(fg_black, true)
 
 type 
   MenuItem = object
+    ## This is used to build up menus and they will show up in the form:
+    ## "id: string"
     name: string
     id: int
 
 proc write(self: MenuItem, tb: var TerminalBuffer, x: int, y: int, selected=false) =
+  ## Will show a MenuItem in the interface, and set the bacground blue
+  ## to show that it's the selected one if it is.
   if selected:
     tb.write(x, y, fg_white, bg_blue, $self.id, ": ", self.name, reset_style)
   else:
     tb.write(x, y, reset_style, $self.id, ": ", self.name)
 
 proc learn(db: DBConn) =
+  ## The menu for The learning subset of the program
   tb.clear()
   var selected = 0
   
@@ -76,6 +93,7 @@ proc learn(db: DBConn) =
     sleep(20)
 
 proc create_cards() =
+  ## The submenu for card creation
   tb.clear()
   var selected = 0
 
@@ -116,14 +134,19 @@ proc create_cards() =
     sleep(20)
 
 proc manage_collections(db: DBConn) =
+  ## Submenu for managing collections
   var selected = 0
   var warning_active = false
   var text_box_is_active = false
+
+  # The y coordinate is set as 0 here since it's not yet sure where
+  # we have to print it, it will be set later to the right spot
   var text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
                               bg_color=bg_green)
                               
 
   while true:
+    # make sure we don't get artifacts from a previous state
     tb.clear()
     # had to put the generating list here to reflect changes
     # in the menu when a collection is deleted
@@ -151,15 +174,24 @@ proc manage_collections(db: DBConn) =
     tb.write(2, 5 + menuitems.len, 
             fg_green, "c: ", fg_white, "create new collection")
 
+    # setting the y coordinate for the text_box here since we
+    # finally know where to place it
     text_box.y = 7 + menuitems.len
 
+    # grab the key the user pushed
     var key = iw.get_key()
-    
+   
+    # this is to be sure that the text_box will deal with its
+    # stuff if it has focus
     if text_box.focus:
+      # handle_key will return true when input is ended by Key.Enter
       if tb.handle_key(text_box, key):
         new_collection(db, text_box.text)
+        # Hide the textbox when input is finished
         text_box_is_active = false
         text_box.focus = false
+        # We have to replace the textbox when we're finished since
+        # if I just set the text as empty the program will crash
         text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
                                  bg_color=bg_green)
       key.set_key_as_handled()
@@ -197,6 +229,7 @@ proc manage_collections(db: DBConn) =
     else:
       discard
 
+    # only show the text_box if it's needed
     if text_box_is_active:
       tb.render(text_box)
 
@@ -209,6 +242,7 @@ proc manage_collections(db: DBConn) =
 
 
 proc main() =
+  ## Main menu of the Program
   var db = open_db()
   var selected = 0
   tb.clear()
