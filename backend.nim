@@ -147,7 +147,7 @@ proc cards*(db: DbConn): Option[seq[Card]] =
     cards.add(row.to_card())
   return some(cards)
 
-proc cards_from_collection*(db: DbConn, collection_id): Option[seq[Card]] =
+proc cards_from_collection*(db: DbConn, collection_id: int): Option[seq[Card]] =
   ## Queries cards that belong to a collection by id
   let rows = db.get_all_rows(sql"select * from card where collection_id = ?", collection_id)
   if rows == @[]:
@@ -157,6 +157,11 @@ proc cards_from_collection*(db: DbConn, collection_id): Option[seq[Card]] =
   for row in rows:
     cards.add(row.to_card())
   return some(cards)
+
+proc num_cards_in_collection*(db: DbConn, collection_id: int): int =
+  ## Returns the number of cards in a collection
+  let row = db.get_row(sql"select count(*) from card where collection_id =?", collection_id)
+  return row[0].parse_int
 
 
 proc remove_collection*(db: DbConn, id: int) =
