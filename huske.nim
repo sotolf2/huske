@@ -252,7 +252,7 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
     sleep(20)
 
 proc manage_cards(db: DBConn) =
-  ## The submenu for card creation
+  ## The submenu for managing cards
   tb.clear()
   var selected = 0
 
