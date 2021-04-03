@@ -13,7 +13,9 @@ import illwillWidgets as iww
 import db_sqlite as sq
 import schedule as se
 import backend 
-import strformat
+import parseopt, strutils
+import sugar
+import parsecsv
 
 proc exit_proc() {.noconv.} =
   ## Make sure to clean up illwill stuff when we leave and 
@@ -460,5 +462,55 @@ proc main() =
     tb.display()
     sleep(20)
 
+proc csv_import(file_name: string, id: int, sep: char, add_reverse=false) =
+  ## Import cards from a csv file to a given collection
 
+  # set up csv parser
+  var p: CsvParser
+  p.open(file_name, separator=sep)
+  defer: p.close()
+  # set up db
+  var db = open_db()
+  defer: db.close
+  
+  # read cards into the db
+  while p.read_row():
+    let 
+      front = p.row[0].strip()
+      back = p.row[1].strip()
+    db.new_card(front, back, id)
+    # add reverse card if needed
+    if add_reverse:
+      db.new_card(back, front, id)
+
+var 
+  p = init_opt_parser()
+  importing = false
+  reverse = false
+  file_name: string
+  id: int
+  sep = ';'
+
+# parse command line options
+while true:
+  p.next()
+  case p.kind
+  of cmdEnd: break
+  of cmd_short_option, cmd_long_option:
+    if p.key == "id" and p.val != "":
+      importing = true
+      id = p.val.parse_int
+    if p.key == "add-reverse":
+      reverse = true
+    if p.key == "separator":
+      sep = p.val[0]
+  of cmd_argument:
+    file_name = p.key
+
+if importing and reverse and file_name != "":
+  csv_import(file_name, id, sep, add_reverse=true)
+elif importing and file_name != "":
+  csv_import(file_name, id, sep)
+
+  
 main()
