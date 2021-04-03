@@ -149,7 +149,7 @@ proc cards*(db: DbConn): Option[seq[Card]] =
 
 proc cards_from_collection*(db: DbConn, collection_id: int): Option[seq[Card]] =
   ## Queries cards that belong to a collection by id
-  let rows = db.get_all_rows(sql"select * from card where collection_id = ? order by frontside desc", collection_id)
+  let rows = db.get_all_rows(sql"select * from card where collection_id = ? order by frontside asc", collection_id)
   if rows == @[]:
     return none(seq[Card])
 
