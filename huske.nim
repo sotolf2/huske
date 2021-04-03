@@ -104,6 +104,8 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
   var ask_reverse = false
   var asking_front = false
   var asking_back = false
+  var front_text: string
+  var back_text: string
 
 
   # The y coordinate is set as 0 here since it's not yet sure where
@@ -144,7 +146,48 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
       item.write(tb, 2, 3 + i, i == selected)
 
     var key = iw.get_key()
+    # Dealing with input from the textboxes
+    if front_text_box.focus:
+      if tb.handle_key(front_text_box, key):
+        front_text = front_text_box.text
+        asking_front = false
+        asking_back = true
+        front_text_box.focus = false
+        back_text_box.focus = true
+        front_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                                 bg_color=bg_green)
+      key.set_key_as_handled()
+
+    if back_text_box.focus:
+      if tb.handle_key(back_text_box, key):
+        back_text = back_text_box.text
+        asking_back = false
+        back_text_box.focus = false
+        back_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
+                                 bg_color=bg_green)
+        ask_reverse = true
+      key.set_key_as_handled()
+
     case key
+    of Key.A:
+      asking_front = true
+      front_text_box.focus = true
+    of Key.D:
+      delete_warning = true
+    of Key.Y:
+      if delete_warning:
+        db.remove_card(menuitems[selected].id)
+        delete_warning = false
+      if ask_reverse:
+        db.new_card(front_text, back_text, coll_id)
+        db.new_card(back_text, front_text, coll_id)
+        ask_reverse = false
+    of Key.N:
+      if delete_warning:
+        delete_warning = false
+      if ask_reverse:
+        db.new_card(front_text, back_text, coll_id)
+        ask_reverse = false
     of Key.Up: 
       if selected > 0:
         selected -= 1
@@ -160,6 +203,27 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
       return
     else:
       discard
+
+    # only show the text_box if it's needed
+    if asking_front:
+      tb.write(2, view_size + 6, fg_yellow,
+                "Frontside of card:", reset_style)
+      tb.render(front_text_box)
+
+    if asking_back:
+      tb.write(2, view_size + 6, fg_yellow,
+                "Backside of card:", reset_style)
+      tb.render(back_text_box)
+
+    if delete_warning:
+      tb.write(2, view_size + 7, fg_red,
+                "Are you sure you want to delete this card? (y/n)",
+                reset_style)
+    if ask_reverse:
+      tb.write(2, view_size + 7, fg_yellow,
+                "Do you want a reverse card to be generated as well (y/n)",
+                reset_style)
+    
 
     tb.display()
     sleep(20)
@@ -185,7 +249,7 @@ proc manage_cards(db: DBConn) =
     menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
 
     tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + menuitems.len)
-    tb.write(2, 1, fgYellow, "Manage card for:")
+    tb.write(2, 1, fgYellow, "Manage cards for:")
     tb.set_foreground_color(fgWhite, true)
     tb.draw_horiz_line(2, terminal_width() - 3, 2, doubleStyle=true)
 
@@ -193,25 +257,6 @@ proc manage_cards(db: DBConn) =
       item.write(tb, 2, 3 + i, i == selected)
     
     var key = iw.get_key()
-
-    # Dealing with input from the textboxes
-    if front_text_box.focus:
-      if tb.handle_key(front_text_box, key):
-        new_collection(db, front_text_box.text)
-        asking_front = false
-        front_text_box.focus = false
-        front_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
-                                 bg_color=bg_green)
-      key.set_key_as_handled()
-
-    if back_text_box.focus:
-      if tb.handle_key(back_text_box, key):
-        new_collection(db, back_text_box.text)
-        asking_back = false
-        back_text_box.focus = false
-        back_text_box = new_text_box("", 2, 0, iw.terminal_width() - 3,
-                                 bg_color=bg_green)
-      key.set_key_as_handled()
 
 
     case key
