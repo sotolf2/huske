@@ -131,8 +131,12 @@ proc card_from_id*(db: DbConn, id: int): Option[Card] =
   result = none(Card)
 
 proc new_card*(db: DbConn, frontside: string, backside: string, collection_id: int) =
-  ## Adds a new card to the database
-  db.exec(sql"insert into card(frontside, backside, collection_id, card_type) values(?, ?, ?, ?)",
+  ## Adds a new card to the database if it doesn't exist
+  var existing_card = 
+    db.get_row(sql"select 1 from card where frontside = ? and backside = ? and collection_id = ?",
+                frontside, backside, collection_id)
+  if existing_card == @[""] :
+    db.exec(sql"insert into card(frontside, backside, collection_id, card_type) values(?, ?, ?, ?)",
           frontside, backside, collection_id,0)
 
 proc cards*(db: DbConn): Option[seq[Card]] =
