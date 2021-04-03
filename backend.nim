@@ -163,6 +163,9 @@ proc num_cards_in_collection*(db: DbConn, collection_id: int): int =
   let row = db.get_row(sql"select count(*) from card where collection_id =?", collection_id)
   return row[0].parse_int
 
+proc remove_card* (db: DbConn, id: int) =
+  ## Removes a card by id
+  db.exec(sql"delete from card where card_id = ?", id)
 
 proc remove_collection*(db: DbConn, id: int) =
   ## Removes a collection and all its associated cards from the db
