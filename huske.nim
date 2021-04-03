@@ -13,6 +13,7 @@ import illwillWidgets as iww
 import db_sqlite as sq
 import schedule as se
 import backend 
+import strformat
 
 proc exit_proc() {.noconv.} =
   ## Make sure to clean up illwill stuff when we leave and 
@@ -43,6 +44,14 @@ proc write(self: MenuItem, tb: var TerminalBuffer, x: int, y: int, selected=fals
     tb.write(x, y, fg_white, bg_blue, $self.id, ": ", self.name, reset_style)
   else:
     tb.write(x, y, reset_style, $self.id, ": ", self.name)
+
+proc write_wo_id(self: MenuItem, tb: var TerminalBuffer, x: int, y: int, selected=false) =
+  ## Will show a MenuItem in the interface, and set the bacground blue
+  ## to show that it's the selected one if it is.
+  if selected:
+    tb.write(x, y, fg_white, bg_blue, self.name, reset_style)
+  else:
+    tb.write(x, y, reset_style, self.name)
 
 proc learn(db: DBConn) =
   ## The menu for The learning subset of the program
@@ -97,9 +106,10 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
   ## we have to make a scrolling view for this one
 
   let view_size = 20
-  let scroll_buffer = 5
 
   var selected = 0
+  var view_from = 0
+  var view_to = 19
   var delete_warning = false
   var ask_reverse = false
   var asking_front = false
@@ -119,16 +129,14 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
     tb.clear()
 
     var menuitems: seq[MenuItem] = @[]
-    var cards = db.cards_from_collection(coll_id)
+    let cards = db.cards_from_collection(coll_id)
+    let num_cards = db.num_cards_in_collection(coll_id)
 
-    var last_id = 0
-
+    # stuff the cards that fit into the view into the menu
     if cards.is_some():
-      for card in cards.get():
+      for card in cards.get()[view_from..min(num_cards - 1, view_to)]:
         let desc = card.frontside & " -> " & card.backside
         menuitems.add(MenuItem(name: desc, id: card.id))
-
-        last_id = card.id
 
     tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + view_size)
     tb.write(2, 1, fgYellow, coll_name)
@@ -136,14 +144,15 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
     tb.draw_horiz_line(2, terminal_width() - 3, 2, doubleStyle=true)
     tb.write(2, 4 + view_size, fg_green, "a: add card", reset_style)
     tb.write(2, 5 + view_size, fg_green, "d: delete card", reset_style)
+    tb.write(2, 6 + view_size, fg_green, "q: back to collection selection", reset_style)
 
     # setting y for textboxes, they are the same since only 
     # one of them will be visible at a time
-    front_text_box.y = 7 + view_size
-    back_text_box.y = 7 + view_size
+    front_text_box.y = 8 + view_size
+    back_text_box.y = 8 + view_size
 
     for i, item in menuitems:
-      item.write(tb, 2, 3 + i, i == selected)
+      item.write_wo_id(tb, 2, 3 + i, i == selected)
 
     var key = iw.get_key()
     # Dealing with input from the textboxes
@@ -189,11 +198,19 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
         db.new_card(front_text, back_text, coll_id)
         ask_reverse = false
     of Key.Up: 
+      # Either move selection or scroll view
       if selected > 0:
         selected -= 1
+      elif view_from > 0:
+        view_from -= 1
+        view_to -= 1
     of Key.Down: 
+      # Either move selection or scroll view
       if selected < menuitems.len - 1:
         selected += 1
+      elif view_to < num_cards - 1:
+        view_from += 1
+        view_to += 1
     of Key.Enter, Key.Right:
       if selected == menuitems.len - 1:
         tb.clear()
@@ -204,23 +221,27 @@ proc card_collection(db: DBConn, coll_name:string, coll_id: int) =
     else:
       discard
 
+    # debug
+    #tb.write(2, view_size + 8, fg_cyan,
+    #          fmt"{selected=}, {view_from=}, {view_to=}")
+
     # only show the text_box if it's needed
     if asking_front:
-      tb.write(2, view_size + 6, fg_yellow,
+      tb.write(2, view_size + 7, fg_yellow,
                 "Frontside of card:", reset_style)
       tb.render(front_text_box)
 
     if asking_back:
-      tb.write(2, view_size + 6, fg_yellow,
+      tb.write(2, view_size + 7, fg_yellow,
                 "Backside of card:", reset_style)
       tb.render(back_text_box)
 
     if delete_warning:
-      tb.write(2, view_size + 7, fg_red,
+      tb.write(2, view_size + 8, fg_red,
                 "Are you sure you want to delete this card? (y/n)",
                 reset_style)
     if ask_reverse:
-      tb.write(2, view_size + 7, fg_yellow,
+      tb.write(2, view_size + 8, fg_yellow,
                 "Do you want a reverse card to be generated as well (y/n)",
                 reset_style)
     
