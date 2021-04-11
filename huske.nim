@@ -55,13 +55,33 @@ proc write_wo_id(self: MenuItem, tb: var TerminalBuffer, x: int, y: int, selecte
   else:
     tb.write(x, y, reset_style, self.name)
 
-proc study(db: DBConn, coll_name:string, coll_id: int) =
-  discard
+proc study(db: DBConn, coll_name: string, coll_id: int, num_new: int) =
+  ## Submenu for Studying cards
+  tb.clear()
+
+  while true:
+    var key = iw.get_key()
+
+    case key
+    of Key.None: discard
+    of Key.Escape, Key.Q:
+      tb.clear()
+      return
+    else:
+      discard
+
+    tb.display()
+    sleep(20)
+
 
 proc learn(db: DBConn) =
   ## The submenu for managing cards
   tb.clear()
   var selected = 0
+  var asking_new = false
+  
+  var num_text_box = new_text_box("10", 2, 0, iw.terminal_width() - 3,
+                              bg_color=bg_green)
 
   while true:
     var menuitems:seq[MenuItem] = @[]
@@ -74,7 +94,7 @@ proc learn(db: DBConn) =
         let n_new_cards = db.num_new_cards_in_collection(coll.id)
         let n_due_cards = db.num_due_cards_in_collection(coll.id)
         let n_cards = db.num_cards_in_collection(coll.id)
-        let desc = coll.name & " [" & $n_new_cards & "/" & $n_due_cards & "/" & $n_cards & "]"
+        let desc = coll.name & " [new: " & $n_new_cards & " due: " & $n_due_cards & " total: " & $n_cards & "]"
         menuitems.add(MenuItem(name: desc, id: coll.id))
         last_id = coll.id
 
@@ -88,10 +108,32 @@ proc learn(db: DBConn) =
     for i, item in menuitems:
       item.write(tb, 2, 3 + i, i == selected)
     
+    # setting the y coordinate for the text_box here since we
+    # finally know where to place it
+    num_text_box.y = 5 + menuitems.len
+
+    # grab the key the user pushed
     var key = iw.get_key()
+   
+    # this is to be sure that the text_box will deal with its
+    # stuff if it has focus
+    if num_text_box.focus:
+      # handle_key will return true when input is ended by Key.Enter
+      if tb.handle_key(num_text_box, key):
+        let cur_item = menuitems[selected]
+        study(db, cur_item.name, cur_item.id, num_text_box.text.parse_int)
+        # Hide the textbox when input is finished
+        asking_new = false
+        num_text_box.focus = false
+        # We have to replace the textbox when we're finished since
+        # if I just set the text as empty the program will crash
+        num_text_box = new_text_box("10", 2, 0, iw.terminal_width() - 3,
+                                 bg_color=bg_green)
+      key.set_key_as_handled()
 
 
     case key
+    of Key.None: discard
     of Key.Up: 
       if selected > 0:
         selected -= 1
@@ -103,13 +145,17 @@ proc learn(db: DBConn) =
         tb.clear()
         return
       else:
-        let cur_item = menuitems[selected]
-        study(db, cur_item.name, cur_item.id)
+        asking_new = true
+        num_text_box.focus = true
     of Key.Escape, Key.Q:
       tb.clear()
       return
     else:
       discard
+
+    if asking_new:
+      tb.write(2, 4 + menuitems.len, "Number of new cards to add: ")
+      tb.render(num_text_box)
 
     tb.display()
     sleep(20)
