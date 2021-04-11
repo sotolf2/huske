@@ -174,6 +174,17 @@ proc due_cards*(db: DbConn, collection_id: int): Option[seq[Card]] =
     cards.add(row.to_card())
   return some(cards)
 
+proc new_cards*(db: DbConn, collection_id: int, limit: int): Option[seq[Card]] =
+  let rows = db.get_all_rows(sql"select * from card where collection_id = ? limit ?", collection_id, limit)
+
+  if rows == @[]:
+    return none(seq[Card])
+
+  var cards: seq[Card]
+  for row in rows:
+    cards.add(row.to_card())
+  return some(card)
+
 proc num_cards_in_collection*(db: DbConn, collection_id: int): int =
   ## Returns the number of cards in a collection
   let row = db.get_row(sql"select count(*) from card where collection_id = ?", collection_id)
