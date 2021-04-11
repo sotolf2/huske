@@ -162,9 +162,31 @@ proc cards_from_collection*(db: DbConn, collection_id: int): Option[seq[Card]] =
     cards.add(row.to_card())
   return some(cards)
 
+proc due_cards*(db: DbConn, collection_id: int): Option[seq[Card]] =
+  ## Get the due cards from the collection
+  let rows = db.get_all_rows(sql"select * from card where collection_id = ? and card_type <> 0 and (julianday('now', 'localtime') - julianday(date_last_reviewed)) > days_between_reviews")
+
+  if rows == @[]:
+    return none(seq[Card])
+
+  var cards: seq[Card]
+  for row in rows:
+    cards.add(row.to_card())
+  return some(cards)
+
 proc num_cards_in_collection*(db: DbConn, collection_id: int): int =
   ## Returns the number of cards in a collection
-  let row = db.get_row(sql"select count(*) from card where collection_id =?", collection_id)
+  let row = db.get_row(sql"select count(*) from card where collection_id = ?", collection_id)
+  return row[0].parse_int
+
+proc num_new_cards_in_collection*(db: DbConn, collection_id: int): int =
+  ## Returns the number of cards not yet started in a collection
+  let row = db.get_row(sql"select count(*) from card where collection_id = ? and card_type = 0")
+  return row[0].parse_int
+
+proc num_due_cards_in_collection*(db: DbConn, collection_id: int): int =
+  ## Returns the number of cards that are due
+  let row = db.get_row(sql"select count(*) from card where collection_id = ? and card_type <> 0 and (julianday('now', 'localtime') - julianday(date_last_reviewed)) > days_between_reviews")
   return row[0].parse_int
 
 proc remove_card* (db: DbConn, id: int) =
