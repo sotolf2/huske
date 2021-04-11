@@ -181,12 +181,12 @@ proc num_cards_in_collection*(db: DbConn, collection_id: int): int =
 
 proc num_new_cards_in_collection*(db: DbConn, collection_id: int): int =
   ## Returns the number of cards not yet started in a collection
-  let row = db.get_row(sql"select count(*) from card where collection_id = ? and card_type = 0")
+  let row = db.get_row(sql"select count(*) from card where collection_id = ? and card_type = 0", collection_id)
   return row[0].parse_int
 
 proc num_due_cards_in_collection*(db: DbConn, collection_id: int): int =
   ## Returns the number of cards that are due
-  let row = db.get_row(sql"select count(*) from card where collection_id = ? and card_type <> 0 and (julianday('now', 'localtime') - julianday(date_last_reviewed)) > days_between_reviews")
+  let row = db.get_row(sql"select count(*) from card where collection_id = ? and card_type <> 0 and (julianday('now', 'localtime') - julianday(date_last_reviewed)) > days_between_reviews", collection_id)
   return row[0].parse_int
 
 proc remove_card* (db: DbConn, id: int) =
