@@ -71,8 +71,10 @@ proc learn(db: DBConn) =
 
     if colls.is_some():
       for coll in colls.get():
+        let n_new_cards = db.num_new_cards_in_collection(coll.id)
+        let n_due_cards = db.num_due_cards_in_collection(coll.id)
         let n_cards = db.num_cards_in_collection(coll.id)
-        let desc = coll.name & " [" & $n_cards & "]"
+        let desc = coll.name & " [" & $n_new_cards & "/" & $n_due_cards & "/" & $n_cards & "]"
         menuitems.add(MenuItem(name: desc, id: coll.id))
         last_id = coll.id
 
