@@ -55,33 +55,40 @@ proc write_wo_id(self: MenuItem, tb: var TerminalBuffer, x: int, y: int, selecte
   else:
     tb.write(x, y, reset_style, self.name)
 
+proc study(db: DBConn, coll_name:string, coll_id: int) =
+  discard
+
 proc learn(db: DBConn) =
-  ## The menu for The learning subset of the program
+  ## The submenu for managing cards
   tb.clear()
   var selected = 0
-  
-  var menuitems:seq[MenuItem] = @[]
-  let colls = db.collections()
 
-  var last_id = 0
-
-  if colls.is_some():
-    for coll in colls.get():
-      menuitems.add(MenuItem(name: coll.name, id: coll.id))
-      last_id = coll.id
-      
-  menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
-  
   while true:
+    var menuitems:seq[MenuItem] = @[]
+    var colls = db.collections()
+
+    var last_id = 0
+
+    if colls.is_some():
+      for coll in colls.get():
+        let n_cards = db.num_cards_in_collection(coll.id)
+        let desc = coll.name & " [" & $n_cards & "]"
+        menuitems.add(MenuItem(name: desc, id: coll.id))
+        last_id = coll.id
+
+    menuitems.add(MenuItem(name: "Back", id: (last_id + 1)))  
+
     tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + menuitems.len)
-    tb.write(2, 1, fgYellow, "Learn")
+    tb.write(2, 1, fgYellow, "Study cards from which collection?")
     tb.set_foreground_color(fgWhite, true)
-    tb.draw_horiz_line(2, iw.terminal_width() - 3, 2, doubleStyle=true)
+    tb.draw_horiz_line(2, terminal_width() - 3, 2, doubleStyle=true)
 
     for i, item in menuitems:
       item.write(tb, 2, 3 + i, i == selected)
     
     var key = iw.get_key()
+
+
     case key
     of Key.Up: 
       if selected > 0:
@@ -89,12 +96,14 @@ proc learn(db: DBConn) =
     of Key.Down: 
       if selected < menuitems.len - 1:
         selected += 1
-    of Key.Enter:
-      # The last menuitem is back
-      if selected == len(menuitems) - 1:
+    of Key.Enter, Key.Right:
+      if selected == menuitems.len - 1:
         tb.clear()
         return
-    of Key.Escape, Key.Q: 
+      else:
+        let cur_item = menuitems[selected]
+        study(db, cur_item.name, cur_item.id)
+    of Key.Escape, Key.Q:
       tb.clear()
       return
     else:
@@ -421,7 +430,7 @@ proc main() =
   
   while true:
     let menuitems = [
-      MenuItem(name: "Learn", id: 1),
+      MenuItem(name: "Study", id: 1),
       MenuItem(name: "Manage cards", id: 2),
       MenuItem(name: "Manage collections", id: 3),
       MenuItem(name: "Quit", id: 4)
