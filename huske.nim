@@ -13,7 +13,7 @@ import illwillWidgets as iww
 import db_sqlite as sq
 import schedule as se
 import backend 
-import parseopt, strutils
+import parseopt, strutils, random
 import sugar
 import parsecsv
 
@@ -23,6 +23,9 @@ proc exit_proc() {.noconv.} =
   iw.illwill_deinit()
   iw.show_cursor()
   quit(0)
+
+# initialize random generator
+randomize()
 
 # Set up stuff we need to get the TUI going
 iw.illwill_init(fullscreen=true)
@@ -58,6 +61,33 @@ proc write_wo_id(self: MenuItem, tb: var TerminalBuffer, x: int, y: int, selecte
 proc study(db: DBConn, coll_name: string, coll_id: int, num_new: int) =
   ## Submenu for Studying cards
   tb.clear()
+
+  var back = false
+  var cards: seq[Card]
+
+  # get cards from the db
+  let new = db.new_cards(coll_id, num_new)
+  if new.is_some():
+    for new_card in new.get:
+      cards.add(new_card)
+
+  let due = db.due_cards(coll_id)
+  if due.is_some():
+    for due_card in due.get:
+      cards.add(due_card)
+
+  var cur = 
+    if cards.len() > 0:
+      cards.pop()
+
+  # randomize cards so they don't always come in the same order
+  shuffle(cards)
+
+  #draw base interface
+  tb.draw_rect(0, 0, iw.terminal_width() - 1, 3 + 5)
+  tb.write(2, 1, fgYellow, "Studying cards")
+  tb.set_foreground_color(fgWhite, true)
+  tb.draw_horiz_line(2, terminal_width() - 3, 2, doubleStyle=true)
 
   while true:
     var key = iw.get_key()
