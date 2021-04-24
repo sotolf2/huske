@@ -76,10 +76,6 @@ proc study(db: DBConn, coll_name: string, coll_id: int, num_new: int) =
     for due_card in due.get:
       cards.add(due_card)
 
-  var cur = 
-    if cards.len() > 0:
-      cards.pop()
-
   # randomize cards so they don't always come in the same order
   shuffle(cards)
 

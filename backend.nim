@@ -110,8 +110,7 @@ proc to_card(row: seq[string]): Card =
 
   days_between_reviews = if row[4] != "": row[4].parse_float else: 1.0
 
-  date_last_reviewed = if row[5] != "": dt.parse(row[5], "yyyy-MM-dd HH:mm")
-    else: dt.now()
+  date_last_reviewed = if row[5] != "": dt.parse(row[5], "yyyy-MM-dd HH:mm") else: dt.now()
 
   result = Card(id: id,
                 frontside: frontside,
@@ -164,7 +163,7 @@ proc cards_from_collection*(db: DbConn, collection_id: int): Option[seq[Card]] =
 
 proc due_cards*(db: DbConn, collection_id: int): Option[seq[Card]] =
   ## Get the due cards from the collection
-  let rows = db.get_all_rows(sql"select * from card where collection_id = ? and card_type <> 0 and (julianday('now', 'localtime') - julianday(date_last_reviewed)) > days_between_reviews")
+  let rows = db.get_all_rows(sql"select * from card where collection_id = ? and card_type <> 0 and (julianday('now', 'localtime') - julianday(date_last_reviewed)) > days_between_reviews", collection_id)
 
   if rows == @[]:
     return none(seq[Card])
@@ -183,7 +182,7 @@ proc new_cards*(db: DbConn, collection_id: int, limit: int): Option[seq[Card]] =
   var cards: seq[Card]
   for row in rows:
     cards.add(row.to_card())
-  return some(card)
+  return some(cards)
 
 proc num_cards_in_collection*(db: DbConn, collection_id: int): int =
   ## Returns the number of cards in a collection
